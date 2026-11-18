@@ -5,12 +5,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Search, FileText, Wallet, CalendarDays, Eye, MessageCircle, Printer, X, Trash2, Check, ReceiptText, Pencil, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import companyLogo from "../WhatsApp Image 2026-11-18 at 3.39.14 PM.jpeg";
+import InvoiceTemplate from "./InvoiceTemplate";
 import { deleteCloudInvoice, fetchCloudInvoices, isSupabaseConfigured, saveCloudInvoice, updateCloudInvoice, type Invoice, type InvoiceItem } from "@/lib/invoices";
 
 const STORAGE_KEY = "beta-power-invoices-v1";
 const fmt = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 }).format(n || 0);
 const dateFmt = (s: string) => new Intl.DateTimeFormat("ar-EG", { year: "numeric", month: "long", day: "numeric" }).format(new Date(s));
-const newItem = (): InvoiceItem => ({ id: crypto.randomUUID(), name: "", quantity: 1, price: 0 });
+type InvoiceFormItem = Omit<InvoiceItem, "quantity" | "price"> & { quantity: number | ""; price: number | "" };
+const newItem = (): InvoiceFormItem => ({ id: crypto.randomUUID(), name: "", quantity: "", price: "" });
 
 export default function Home() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -19,7 +21,7 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [client, setClient] = useState("");
-  const [items, setItems] = useState<InvoiceItem[]>([newItem()]);
+  const [items, setItems] = useState<InvoiceFormItem[]>([newItem()]);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -54,7 +56,11 @@ export default function Home() {
   const filtered = useMemo(() => invoices.filter((inv) => `${inv.number} ${inv.client}`.toLowerCase().includes(search.trim().toLowerCase())), [invoices, search]);
   const totalValue = invoices.reduce((sum, inv) => sum + inv.total, 0);
   const draftTotal = items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
-  const updateItem = (id: string, key: keyof InvoiceItem, value: string) => setItems((current) => current.map((item) => item.id === id ? { ...item, [key]: key === "name" ? value : Number(value) } : item));
+  const updateItem = (id: string, key: "name" | "quantity" | "price", value: string) => setItems((current) => current.map((item) => {
+    if (item.id !== id) return item;
+    if (key === "name") return { ...item, name: value };
+    return { ...item, [key]: value === "" ? "" : Number(value) };
+  }));
   const resetForm = () => { setClient(""); setItems([newItem()]); setError(""); setEditingInvoice(null); setCreating(false); };
   const startCreate = () => { resetForm(); setCreating(true); };
   const startEdit = (invoice: Invoice) => {
@@ -67,7 +73,9 @@ export default function Home() {
   };
 
   const createInvoice = async () => {
-    const validItems = items.filter((item) => item.name.trim() && item.quantity > 0 && item.price >= 0);
+    const validItems: InvoiceItem[] = items
+      .filter((item) => item.name.trim() && item.quantity !== "" && Number(item.quantity) > 0 && item.price !== "" && Number(item.price) >= 0)
+      .map((item) => ({ ...item, quantity: Number(item.quantity), price: Number(item.price) }));
     if (!client.trim()) { setError("يرجى إدخال اسم العميل أو الجهة."); return; }
     if (!validItems.length) { setError("أضف صنفًا واحدًا على الأقل مع الكمية والسعر."); return; }
     const total = validItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
@@ -109,12 +117,6 @@ export default function Home() {
     toast.success("تم حذف الفاتورة بنجاح");
   };
 
-  const whatsappMessage = (invoice: Invoice) => [
-    `فاتورة من شركة Beta Power`, `رقم الفاتورة: ${invoice.number}`, `العميل: ${invoice.client}`, "", "تفاصيل الأصناف:",
-    ...invoice.items.map((item) => `• ${item.name} — ${item.quantity} × ${fmt(item.price)} = ${fmt(item.quantity * item.price)}`),
-    "", `الإجمالي: ${fmt(invoice.total)}`, `منشئ الفاتورة: Mahmoud Hany`, "أرفقت لكم ملف الفاتورة بصيغة PDF.",
-  ].join("\n");
-
   const shareInvoicePdf = async (invoice: Invoice) => {
     if (sharing) return;
     setSharing(true);
@@ -144,7 +146,7 @@ export default function Home() {
         margin: 10,
         filename: `${invoice.number}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: false, backgroundColor: "#ffffff", imageTimeout: 15000 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       }).from(source).outputPdf("blob") as Blob;
       const file = new File([blob], `${invoice.number}.pdf`, { type: "application/pdf" });
@@ -155,8 +157,7 @@ export default function Home() {
         const anchor = document.createElement("a");
         anchor.href = url; anchor.download = file.name; anchor.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        window.open(`https://wa.me/?text=${encodeURIComponent(whatsappMessage(invoice))}`, "_blank", "noopener,noreferrer");
-        setStorageError("تم تنزيل PDF. أرفق الملف يدويًا في واتساب بعد اختيار جهة الاتصال.");
+        toast.success("تم تنزيل نسخة PDF إلى جهازك");
       }
     } catch (cause) {
       if (cause instanceof Error && cause.name === "AbortError") return;
@@ -177,10 +178,10 @@ export default function Home() {
       {filtered.length ? <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>{filtered.map((inv) => <tr key={inv.id}><td className="inv-id">{inv.number}</td><td className="client-cell">{inv.client}</td><td className="date-cell">{dateFmt(inv.date)}</td><td className="amount">{fmt(inv.total)}</td><td><span className="status"><Check size={13}/> مكتملة</span></td><td><div className="actions"><button className="icon-btn" title="عرض الفاتورة" aria-label="عرض الفاتورة" onClick={() => setSelected(inv)}><Eye size={16}/></button><button className="icon-btn" title="مشاركة PDF عبر واتساب" aria-label="مشاركة PDF عبر واتساب" disabled={sharing} onClick={() => void shareInvoicePdf(inv)}><MessageCircle size={16}/></button><button className="icon-btn" title="تعديل الفاتورة" aria-label="تعديل الفاتورة" onClick={() => startEdit(inv)}><Pencil size={15}/></button><button className="icon-btn" title="حذف الفاتورة" aria-label="حذف الفاتورة" onClick={() => setPendingDelete(inv)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div> : <div className="empty"><FileText className="empty-icon" size={34}/><div>{search ? "لا توجد فواتير تطابق بحثك." : ready ? "لا توجد فواتير حتى الآن. ابدأ بإنشاء فاتورتك الأولى." : "جارٍ تحميل الفواتير..."}</div></div>}
     </section>
 
-    {creating && <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) resetForm(); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><div className="modal-head"><h2 id="create-title">{editingInvoice ? "تعديل الفاتورة" : "إنشاء فاتورة جديدة"}</h2><button className="close" onClick={resetForm} aria-label="إغلاق"><X size={20}/></button></div><div className="modal-body"><label className="field-label" htmlFor="client">اسم العميل / الجهة</label><input id="client" className="text-input" value={client} onChange={(e) => setClient(e.target.value)} placeholder="أدخل اسم العميل أو الجهة" autoFocus/><div className="items-title"><span>الأصناف</span><button className="add-line" onClick={() => setItems((current) => [...current, newItem()])}><Plus size={15}/> إضافة صنف</button></div><div className="item-head"><span>اسم الصنف</span><span>الكمية</span><span>سعر الوحدة</span><span style={{textAlign:"center"}}>الإجمالي</span><span/></div>{items.map((item) => <div className="item-row" key={item.id}><input className="text-input" value={item.name} onChange={(e) => updateItem(item.id,"name",e.target.value)} placeholder="اسم الصنف" aria-label="اسم الصنف"/><input className="text-input" type="number" min="1" value={item.quantity} onChange={(e) => updateItem(item.id,"quantity",e.target.value)} aria-label="الكمية"/><input className="text-input" type="number" min="0" step="0.01" value={item.price} onChange={(e) => updateItem(item.id,"price",e.target.value)} aria-label="سعر الوحدة"/><div className="item-total">{fmt(item.quantity * item.price)}</div><button className="remove" onClick={() => setItems((current) => current.length > 1 ? current.filter((x) => x.id !== item.id) : current)} aria-label="حذف الصنف"><X size={16}/></button></div>)}<div className="grand"><span>الإجمالي الكلي</span><strong>{fmt(draftTotal)}</strong></div>{error && <div className="error" role="alert">{error}</div>}</div><div className="modal-foot"><button className="primary" onClick={() => void createInvoice()}>{editingInvoice ? "حفظ التعديلات" : "حفظ الفاتورة"}</button><button className="secondary" onClick={resetForm}>إلغاء</button></div></section></div>}
+    {creating && <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) resetForm(); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><div className="modal-head"><h2 id="create-title">{editingInvoice ? "تعديل الفاتورة" : "إنشاء فاتورة جديدة"}</h2><button className="close" onClick={resetForm} aria-label="إغلاق"><X size={20}/></button></div><div className="modal-body"><label className="field-label" htmlFor="client">اسم العميل / الجهة</label><input id="client" className="text-input" value={client} onChange={(e) => setClient(e.target.value)} placeholder="أدخل اسم العميل أو الجهة" autoFocus/><div className="items-title"><span>الأصناف</span><button className="add-line" onClick={() => setItems((current) => [...current, newItem()])}><Plus size={15}/> إضافة صنف</button></div><div className="item-head"><span>اسم الصنف</span><span>الكمية</span><span>سعر الوحدة</span><span style={{textAlign:"center"}}>الإجمالي</span><span/></div>{items.map((item) => <div className="item-row" key={item.id}><input className="text-input" value={item.name} onChange={(e) => updateItem(item.id,"name",e.target.value)} placeholder="اسم الصنف" aria-label="اسم الصنف"/><input className="text-input" type="number" min="1" placeholder="الكمية" value={item.quantity} onChange={(e) => updateItem(item.id,"quantity",e.target.value)} aria-label="الكمية"/><input className="text-input" type="number" min="0" step="0.01" placeholder="سعر الوحدة" value={item.price} onChange={(e) => updateItem(item.id,"price",e.target.value)} aria-label="سعر الوحدة"/><div className="item-total">{fmt(Number(item.quantity || 0) * Number(item.price || 0))}</div><button className="remove" onClick={() => setItems((current) => current.length > 1 ? current.filter((x) => x.id !== item.id) : current)} aria-label="حذف الصنف"><X size={16}/></button></div>)}<div className="grand"><span>الإجمالي الكلي</span><strong>{fmt(draftTotal)}</strong></div>{error && <div className="error" role="alert">{error}</div>}</div><div className="modal-foot"><button className="primary" onClick={() => void createInvoice()}>{editingInvoice ? "حفظ التعديلات" : "حفظ الفاتورة"}</button><button className="secondary" onClick={resetForm}>إلغاء</button></div></section></div>}
 
     {pendingDelete && <div className="overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !deleting) setPendingDelete(null); }}><section className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description"><div className="modal-head"><div className="confirm-heading"><div className="confirm-icon"><AlertTriangle size={22}/></div><div><h2 id="delete-title">تأكيد حذف الفاتورة</h2><p>يرجى مراجعة الفاتورة قبل الحذف</p></div></div><button className="close" onClick={() => !deleting && setPendingDelete(null)} aria-label="إغلاق"><X size={20}/></button></div><div className="modal-body"><p id="delete-description" className="confirm-copy">هل تريد حذف الفاتورة <strong>{pendingDelete.number}</strong> الخاصة بالعميل <strong>{pendingDelete.client}</strong>؟ لا يمكن التراجع عن هذا الإجراء.</p></div><div className="modal-foot"><button className="danger-button" disabled={deleting} onClick={() => void removeInvoice()}>{deleting ? "جارٍ الحذف…" : "حذف الفاتورة"}</button><button className="secondary" disabled={deleting} onClick={() => setPendingDelete(null)}>إلغاء</button></div></section></div>}
 
-    {selected && <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelected(null); }}><section className="modal detail-modal" role="dialog" aria-modal="true" aria-label="تفاصيل الفاتورة"><div className="modal-head no-print"><h2>تفاصيل الفاتورة</h2><div style={{display:"flex",gap:12,alignItems:"center"}}><button className="close" title="طباعة" aria-label="طباعة الفاتورة" onClick={() => window.print()}><Printer size={19}/></button><button className="close" onClick={() => setSelected(null)} aria-label="إغلاق"><X size={20}/></button></div></div><article className="invoice-paper" ref={printableInvoice}><div className="paper-top"><div className="paper-brand"><div className="brand-mark logo-frame invoice-logo"><Image src={companyLogo} alt="شعار Beta Power" width={130} height={130} unoptimized style={{width:130,height:"auto",maxHeight:60,objectFit:"contain",display:"block"}}/></div><div><h2>Beta Power</h2><p>فاتورة مبيعات</p></div></div><div className="paper-inv"><h3>فاتورة</h3><p>رقم: {selected.number}</p><p>التاريخ: {dateFmt(selected.date)}</p></div></div><div className="bill-to"><small>فاتورة إلى</small><strong>{selected.client}</strong></div><div className="table-wrap"><table className="paper-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead><tbody>{selected.items.map((item) => <tr key={item.id}><td>{item.name}</td><td>{item.quantity}</td><td>{fmt(item.price)}</td><td>{fmt(item.price * item.quantity)}</td></tr>)}</tbody></table></div><div className="paper-total"><span>الإجمالي الكلي</span><strong>{fmt(selected.total)}</strong></div><div className="paper-footer"><span>منشئ الفاتورة: Mahmoud Hany</span><span>شكرًا لاختياركم Beta Power</span></div></article><div className="modal-foot no-print"><button className="secondary" onClick={() => startEdit(selected)}><Pencil size={16}/> تعديل الفاتورة</button><button className="primary" disabled={sharing} onClick={() => void shareInvoicePdf(selected)}><MessageCircle size={17}/> {sharing ? "جارٍ تجهيز PDF…" : "مشاركة PDF عبر واتساب"}</button><button className="secondary" onClick={() => window.print()}><Printer size={16}/> طباعة</button></div></section></div>}
+    {selected && <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelected(null); }}><section className="modal detail-modal" role="dialog" aria-modal="true" aria-label="تفاصيل الفاتورة"><div className="modal-head no-print"><h2>تفاصيل الفاتورة</h2><div style={{display:"flex",gap:12,alignItems:"center"}}><button className="close" title="طباعة" aria-label="طباعة الفاتورة" onClick={() => window.print()}><Printer size={19}/></button><button className="close" onClick={() => setSelected(null)} aria-label="إغلاق"><X size={20}/></button></div></div><InvoiceTemplate invoice={selected} invoiceRef={printableInvoice}/><div className="modal-foot no-print"><button className="secondary" onClick={() => startEdit(selected)}><Pencil size={16}/> تعديل الفاتورة</button><button className="primary" disabled={sharing} onClick={() => void shareInvoicePdf(selected)}><MessageCircle size={17}/> {sharing ? "جارٍ تجهيز PDF…" : "مشاركة PDF عبر واتساب"}</button><button className="secondary" onClick={() => window.print()}><Printer size={16}/> طباعة</button></div></section></div>}
   </main>;
 }
