@@ -232,3 +232,21 @@ button { cursor: pointer; }
   .invoice-contact-card { min-height:82px; padding:8px 4px; }
   .invoice-contact-card a { font-size:9px; }
 }
+.invoice-contact-card > div { width:100%; overflow:visible; }
+.invoice-contact-card a {
+  width:100%; min-height:16px; box-sizing:border-box; visibility:visible; opacity:1;
+  color:#142238; font-family:Arial,Tahoma,sans-serif; font-size:10px;
+  line-height:1.45; overflow:visible; overflow-wrap:anywhere; word-break:break-word;
+}
+.invoice-contact-card .invoice-contact-value {
+  display:inline-block; width:auto; max-width:100%; min-height:18px; margin:0 auto;
+  color:#142238; font-family:Arial,Tahoma,sans-serif; font-size:11px; font-weight:700;
+  line-height:1.5; text-align:center; text-decoration:none; direction:ltr;
+  unicode-bidi:isolate; white-space:nowrap; word-break:normal; overflow:visible;
+}
+.invoice-contact-card .invoice-facebook-link {
+  white-space:normal; overflow-wrap:anywhere; word-break:break-word; font-size:9px;
+}
+.invoice-contact-card > div { position:relative; z-index:1; min-height:36px; overflow:visible !important; }
+.invoice-contact-card a.invoice-contact-value { position:relative; z-index:2; min-height:18px; -webkit-text-fill-color:#142238; }
+.invoice-contact-card a.invoice-facebook-link { min-height:30px; -webkit-text-fill-color:#142238; }

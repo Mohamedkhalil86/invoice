@@ -83,15 +83,15 @@ export default function InvoiceTemplate({ invoice, invoiceRef }: InvoiceTemplate
     <section className="invoice-contact-grid" aria-label="بيانات التواصل">
       <div className="invoice-contact-card">
         <span className="invoice-contact-glyph invoice-whatsapp" aria-hidden="true"><MessageCircle size={19} strokeWidth={2.2}/></span>
-        <div><small>واتساب</small><a href="https://wa.me/201114981832" dir="ltr">01114981832</a></div>
+        <div><small>واتساب</small><a className="invoice-contact-value" style={{ display: "block", color: "#142238", fontFamily: "Arial, Tahoma, sans-serif", fontSize: "12px", fontWeight: 700, lineHeight: 1.5, textAlign: "center", textDecoration: "none", direction: "ltr", unicodeBidi: "isolate", whiteSpace: "nowrap", visibility: "visible", opacity: 1 }} href="https://wa.me/201114981832" dir="ltr">01114981832</a></div>
       </div>
       <div className="invoice-contact-card">
         <span className="invoice-contact-glyph invoice-phone" aria-hidden="true"><Phone size={18} strokeWidth={2.2}/></span>
-        <div><small>رقم الاتصال</small><a href="tel:+201550579513" dir="ltr">01550579513</a></div>
+        <div><small>رقم الاتصال</small><a className="invoice-contact-value" style={{ display: "block", color: "#142238", fontFamily: "Arial, Tahoma, sans-serif", fontSize: "12px", fontWeight: 700, lineHeight: 1.5, textAlign: "center", textDecoration: "none", direction: "ltr", unicodeBidi: "isolate", whiteSpace: "nowrap", visibility: "visible", opacity: 1 }} href="tel:+201550579513" dir="ltr">01550579513</a></div>
       </div>
       <div className="invoice-contact-card">
         <span className="invoice-contact-glyph invoice-facebook" aria-hidden="true"><Facebook size={19} strokeWidth={2.2}/></span>
-        <div><small>فيسبوك</small><a href="https://www.facebook.com/share/1AV97pEsng/" target="_blank" rel="noopener noreferrer">صفحتنا على فيسبوك</a></div>
+        <div><small>فيسبوك</small><a className="invoice-contact-value invoice-facebook-link" style={{ display: "block", width: "100%", maxWidth: "100%", color: "#142238", fontFamily: "Arial, Tahoma, sans-serif", fontSize: "9px", fontWeight: 700, lineHeight: 1.5, textAlign: "center", textDecoration: "none", direction: "ltr", unicodeBidi: "isolate", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word", visibility: "visible", opacity: 1 }} href="https://www.facebook.com/share/1AV97pEsng/" target="_blank" rel="noopener noreferrer" dir="ltr">facebook.com/share/<br />1AV97pEsng</a></div>
       </div>
     </section>
 

@@ -171,6 +171,7 @@ export default function Home() {
         filename: `${invoice.number}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
+        pagebreak: { mode: ["css", "legacy"], avoid: ".invoice-contact-grid" },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       }).from(source).outputPdf("blob") as Blob;
       const file = new File([blob], `${invoice.number}.pdf`, { type: "application/pdf" });
