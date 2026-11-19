@@ -179,3 +179,56 @@ button { cursor: pointer; }
   .invoice-header { margin:0; border-radius:10px; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
   .invoice-total-card,.invoice-thanks,.invoice-items-table th,.invoice-contact-glyph { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
 }
+.date-filter { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 22px; border-bottom:1px solid var(--line); background:#fcfdfd; }
+.date-filter label { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; font-weight:700; }
+.date-filter select,.date-filter input { min-width:150px; height:38px; padding:0 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:inherit; }
+.invoice-contact-grid,.invoice-contact-card,.invoice-contact-card > div { box-sizing:border-box; max-width:100%; overflow:hidden; }
+.invoice-contact-card { display:flex; align-items:center; justify-content:center; text-align:center; flex-wrap:wrap; }
+.invoice-contact-card > div { display:flex; align-items:center; justify-content:center; text-align:center; flex-wrap:wrap; }
+.invoice-contact-glyph { width:32px; height:32px; flex-shrink:0; display:block; }
+@media(max-width:760px) {
+  .date-filter { align-items:stretch; flex-direction:column; padding:14px 18px; }
+  .date-filter label { justify-content:space-between; }
+  .date-filter select,.date-filter input { flex:1; min-width:0; max-width:65%; }
+}
+
+/* Contact cards: stable, centered layout for the invoice and html2pdf canvas. */
+.invoice-contact-grid {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;
+  width:100%; min-width:0; box-sizing:border-box; align-items:stretch;
+}
+.invoice-contact-card {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; min-width:0; min-height:92px; max-width:100%; box-sizing:border-box;
+  overflow:hidden; padding:12px 8px; text-align:center; flex-wrap:nowrap;
+  border:1px solid #e2eaf0; border-radius:12px; background:#fff;
+}
+.invoice-contact-glyph {
+  width:38px; height:38px; min-width:38px; flex:0 0 38px; display:grid;
+  place-items:center; box-sizing:border-box; border-radius:12px;
+}
+.invoice-contact-glyph svg { width:19px; height:19px; display:block; flex-shrink:0; }
+.invoice-contact-glyph.invoice-whatsapp { color:#138a58; background:#e8f7ef; }
+.invoice-contact-glyph.invoice-phone { color:#117a8b; background:#e9f6f8; }
+.invoice-contact-glyph.invoice-facebook { color:#2564ad; background:#eaf1fb; }
+.invoice-contact-card > div {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; width:100%; min-width:0; max-width:100%; box-sizing:border-box;
+  overflow:hidden; text-align:center; flex-wrap:nowrap;
+}
+.invoice-contact-card small { max-width:100%; color:#78879a; font-size:10px; font-weight:700; white-space:normal; }
+.invoice-contact-card a {
+  display:block; max-width:100%; color:#1e3449; font-size:11px; font-weight:700;
+  line-height:1.4; text-decoration:none; overflow-wrap:anywhere; word-break:break-word;
+}
+@media(max-width:760px) {
+  .invoice-contact-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+  .invoice-contact-card { min-height:82px; padding:8px 4px; }
+  .invoice-contact-card a { font-size:9px; }
+}
+/* Keep the three contact cards in one row in both print and html2pdf exports. */
+@media print {
+  .invoice-contact-grid { grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:6px; }
+  .invoice-contact-card { min-height:82px; padding:8px 4px; }
+  .invoice-contact-card a { font-size:9px; }
+}

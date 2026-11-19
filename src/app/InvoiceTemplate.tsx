@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { RefObject } from "react";
 import type { Invoice } from "@/lib/invoices";
+import { Facebook, MessageCircle, Phone } from "lucide-react";
 import companyLogo from "../WhatsApp Image 2026-11-18 at 3.39.14 PM.jpeg";
 
 type InvoiceTemplateProps = {
@@ -81,15 +82,15 @@ export default function InvoiceTemplate({ invoice, invoiceRef }: InvoiceTemplate
 
     <section className="invoice-contact-grid" aria-label="بيانات التواصل">
       <div className="invoice-contact-card">
-        <span className="invoice-contact-glyph invoice-whatsapp" aria-hidden="true">W</span>
+        <span className="invoice-contact-glyph invoice-whatsapp" aria-hidden="true"><MessageCircle size={19} strokeWidth={2.2}/></span>
         <div><small>واتساب</small><a href="https://wa.me/201114981832" dir="ltr">01114981832</a></div>
       </div>
       <div className="invoice-contact-card">
-        <span className="invoice-contact-glyph invoice-phone" aria-hidden="true">&#9742;</span>
+        <span className="invoice-contact-glyph invoice-phone" aria-hidden="true"><Phone size={18} strokeWidth={2.2}/></span>
         <div><small>رقم الاتصال</small><a href="tel:+201550579513" dir="ltr">01550579513</a></div>
       </div>
       <div className="invoice-contact-card">
-        <span className="invoice-contact-glyph invoice-facebook" aria-hidden="true">f</span>
+        <span className="invoice-contact-glyph invoice-facebook" aria-hidden="true"><Facebook size={19} strokeWidth={2.2}/></span>
         <div><small>فيسبوك</small><a href="https://www.facebook.com/share/1AV97pEsng/" target="_blank" rel="noopener noreferrer">صفحتنا على فيسبوك</a></div>
       </div>
     </section>

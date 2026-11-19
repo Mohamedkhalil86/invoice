@@ -11,6 +11,14 @@ import { deleteCloudInvoice, fetchCloudInvoices, isSupabaseConfigured, saveCloud
 const STORAGE_KEY = "beta-power-invoices-v1";
 const fmt = (n: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 }).format(n || 0);
 const dateFmt = (s: string) => new Intl.DateTimeFormat("ar-EG", { year: "numeric", month: "long", day: "numeric" }).format(new Date(s));
+const localDateParts = (value: string) => {
+  // Treat date-only values as calendar dates, and timestamps by their written
+  // calendar date, avoiding UTC/local conversions that can shift a day.
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+};
 type InvoiceFormItem = Omit<InvoiceItem, "quantity" | "price"> & { quantity: number | ""; price: number | "" };
 const newItem = (): InvoiceFormItem => ({ id: crypto.randomUUID(), name: "", quantity: "", price: "" });
 
@@ -18,6 +26,13 @@ export default function Home() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [ready, setReady] = useState(false);
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<"all" | "day" | "month" | "year">("all");
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [creating, setCreating] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [client, setClient] = useState("");
@@ -53,8 +68,17 @@ export default function Home() {
     if (ready && !isSupabaseConfigured) localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
   }, [invoices, ready]);
 
-  const filtered = useMemo(() => invoices.filter((inv) => `${inv.number} ${inv.client}`.toLowerCase().includes(search.trim().toLowerCase())), [invoices, search]);
-  const totalValue = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const filtered = useMemo(() => invoices.filter((inv) => {
+    const matchesSearch = `${inv.number} ${inv.client}`.toLowerCase().includes(search.trim().toLowerCase());
+    if (!matchesSearch) return false;
+    if (dateFilter === "all") return true;
+    const parts = localDateParts(inv.date);
+    if (!parts) return false;
+    if (dateFilter === "day") return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}` === selectedDay;
+    if (dateFilter === "month") return `${parts.year}-${String(parts.month).padStart(2, "0")}` === selectedMonth;
+    return parts.year === Number(selectedYear);
+  }), [invoices, search, dateFilter, selectedDay, selectedMonth, selectedYear]);
+  const totalValue = filtered.reduce((sum, inv) => sum + inv.total, 0);
   const draftTotal = items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0), 0);
   const updateItem = (id: string, key: "name" | "quantity" | "price", value: string) => setItems((current) => current.map((item) => {
     if (item.id !== id) return item;
@@ -169,11 +193,16 @@ export default function Home() {
     <header className="topbar no-print"><div className="brand"><div className="brand-mark logo-frame navbar-logo"><Image src={companyLogo} alt="شعار Beta Power" priority/></div><div><div className="brand-name">Beta Power</div><div className="brand-sub">إدارة الفواتير</div></div></div><div className="profile"><div className="avatar">م</div><span>Mahmoud Hany</span></div></header>
     <section className="welcome no-print"><div><h1>إدارة الفواتير</h1><p>تابع فواتيرك وأنشئ فاتورة جديدة بكل سهولة.</p></div><button className="primary" onClick={startCreate}><Plus size={18}/> إنشاء فاتورة جديدة</button></section>
     <section className="stats no-print">
-      <div className="stat"><div><div className="stat-label">إجمالي الفواتير</div><div className="stat-value">{invoices.length}</div></div><div className="stat-icon"><ReceiptText size={20}/></div></div>
+      <div className="stat"><div><div className="stat-label">إجمالي الفواتير</div><div className="stat-value">{filtered.length}</div></div><div className="stat-icon"><ReceiptText size={20}/></div></div>
       <div className="stat"><div><div className="stat-label">إجمالي قيمة الفواتير</div><div className="stat-value" style={{fontSize:19}}>{fmt(totalValue)}</div></div><div className="stat-icon"><Wallet size={20}/></div></div>
       <div className="stat"><div><div className="stat-label">آخر فاتورة</div><div className="stat-value" style={{fontSize:17}}>{invoices[0] ? dateFmt(invoices[0].date) : "—"}</div></div><div className="stat-icon"><CalendarDays size={20}/></div></div>
     </section>
-    <section className="panel no-print"><div className="panel-head"><div><h2>الفواتير</h2><p>جميع الفواتير التي تم إنشاؤها</p></div><label className="search"><Search size={17}/><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث برقم الفاتورة أو اسم العميل" aria-label="ابحث في الفواتير"/></label></div>
+    <section className="panel no-print"><div className="panel-head"><div><h2>الفواتير</h2><p>جميع الفواتير التي تم إنشاؤها</p></div><label className="search"><Search size={17}/><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث برقم الفاتورة أو اسم العميل" aria-label="ابحث في الفواتير"/></label></div>      <div className="date-filter" aria-label="Invoice date filter">
+        <label>الفترة <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)}><option value="all">الكل</option><option value="day">يوم</option><option value="month">شهر</option><option value="year">سنة</option></select></label>
+        {dateFilter === "day" && <label>اختر اليوم <input type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)}/></label>}
+        {dateFilter === "month" && <label>اختر الشهر <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}/></label>}
+        {dateFilter === "year" && <label>اختر السنة <select value={selectedYear} onChange={(event) => setSelectedYear(event.target.value)}>{Array.from({length: 11}, (_, index) => new Date().getFullYear() - 5 + index).map((year) => <option key={year} value={year}>{year}</option>)}</select></label>}
+      </div>
       {storageError && <p className="error storage-message">{storageError}</p>}
       {filtered.length ? <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>{filtered.map((inv) => <tr key={inv.id}><td className="inv-id">{inv.number}</td><td className="client-cell">{inv.client}</td><td className="date-cell">{dateFmt(inv.date)}</td><td className="amount">{fmt(inv.total)}</td><td><span className="status"><Check size={13}/> مكتملة</span></td><td><div className="actions"><button className="icon-btn" title="عرض الفاتورة" aria-label="عرض الفاتورة" onClick={() => setSelected(inv)}><Eye size={16}/></button><button className="icon-btn" title="مشاركة PDF عبر واتساب" aria-label="مشاركة PDF عبر واتساب" disabled={sharing} onClick={() => void shareInvoicePdf(inv)}><MessageCircle size={16}/></button><button className="icon-btn" title="تعديل الفاتورة" aria-label="تعديل الفاتورة" onClick={() => startEdit(inv)}><Pencil size={15}/></button><button className="icon-btn" title="حذف الفاتورة" aria-label="حذف الفاتورة" onClick={() => setPendingDelete(inv)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div> : <div className="empty"><FileText className="empty-icon" size={34}/><div>{search ? "لا توجد فواتير تطابق بحثك." : ready ? "لا توجد فواتير حتى الآن. ابدأ بإنشاء فاتورتك الأولى." : "جارٍ تحميل الفواتير..."}</div></div>}
     </section>
