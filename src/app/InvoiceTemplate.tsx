@@ -62,14 +62,14 @@ export default function InvoiceTemplate({ invoice, invoiceRef }: InvoiceTemplate
       <tbody>{invoice.items.map((item) => <tr key={item.id}>
         <td>{item.name}</td>
         <td>{item.quantity}</td>
-        <td dir="ltr">{amount(item.price)}</td>
-        <td dir="ltr">{amount(item.price * item.quantity)}</td>
+        <td dir="ltr">{amount(item.price * (1-Number(item.itemDiscountPercent||0)/100))}</td>
+        <td dir="ltr">{amount(item.lineTotal ?? item.price * item.quantity * (1-Number(item.itemDiscountPercent||0)/100))}</td>
       </tr>)}</tbody>
     </table>
 
     <section className="invoice-total-card">
       <div className="invoice-total-heading">
-        <strong>الإجمالي الكلي</strong>
+        <strong>الإجمالي النهائي</strong>
         <span>Total Amount</span>
       </div>
       <div className="invoice-total-amount">
