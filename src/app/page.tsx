@@ -46,6 +46,8 @@ export default function Home() {
   const [storageError, setStorageError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Invoice | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const printableInvoice = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -70,6 +72,10 @@ export default function Home() {
   useEffect(() => {
     if (ready && !isSupabaseConfigured) localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
   }, [invoices, ready]);
+  useEffect(() => {
+    setDeletePassword("");
+    setDeleteError("");
+  }, [pendingDelete]);
 
   const filtered = useMemo(() => invoices.filter((inv) => {
     const matchesSearch = `${inv.number} ${inv.client}`.toLowerCase().includes(search.trim().toLowerCase());
@@ -132,16 +138,47 @@ export default function Home() {
 
   const removeInvoice = async () => {
     if (!pendingDelete) return;
+    if (!deletePassword.trim()) {
+      setDeleteError("أدخل كلمة مرور حسابك لتأكيد حذف الفاتورة.");
+      return;
+    }
     setDeleting(true);
     const invoice = pendingDelete;
-    if (isSupabaseConfigured) {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user?.email) {
+        setDeleteError("تعذر التحقق من جلسة حسابك. سجّل الدخول مرة أخرى.");
+        return;
+      }
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password: deletePassword });
+      if (authError) {
+        setDeleteError("كلمة المرور غير صحيحة، لم يتم حذف الفاتورة.");
+        return;
+      }
       const { error: dbError } = await deleteCloudInvoice(invoice.id);
-      if (dbError) { setStorageError(`تعذر حذف الفاتورة من Supabase: ${dbError}`); toast.error("تعذر حذف الفاتورة", { description: dbError }); setDeleting(false); return; }
+      if (dbError) {
+        setDeleteError("تعذر حذف الفاتورة الآن. حاول مرة أخرى.");
+        toast.error("تعذر حذف الفاتورة", { description: dbError });
+        return;
+      }
+      setInvoices((list) => list.filter((item) => item.id !== invoice.id));
+      setPendingDelete(null);
+      setDeletePassword("");
+      setDeleteError("");
+      toast.success("تم حذف الفاتورة بنجاح");
+    } catch {
+      setDeleteError("تعذر التحقق من كلمة المرور الآن. حاول مرة أخرى.");
+    } finally {
+      setDeleting(false);
     }
-    setInvoices((list) => list.filter((item) => item.id !== invoice.id));
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setDeletePassword("");
+    setDeleteError("");
     setPendingDelete(null);
-    setDeleting(false);
-    toast.success("تم حذف الفاتورة بنجاح");
   };
 
   const signOut = async () => {
@@ -218,12 +255,12 @@ export default function Home() {
         {dateFilter === "year" && <label>اختر السنة <select value={selectedYear} onChange={(event) => setSelectedYear(event.target.value)}>{Array.from({length: 11}, (_, index) => new Date().getFullYear() - 5 + index).map((year) => <option key={year} value={year}>{year}</option>)}</select></label>}
       </div>
       {storageError && <p className="error storage-message">{storageError}</p>}
-      {filtered.length ? <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>{filtered.map((inv) => <tr key={inv.id}><td className="inv-id">{inv.number}</td><td className="client-cell">{inv.client}</td><td className="date-cell">{dateFmt(inv.date)}</td><td className="amount">{fmt(inv.total)}</td><td><span className="status"><Check size={13}/> مكتملة</span></td><td><div className="actions"><button className="icon-btn" title="عرض الفاتورة" aria-label="عرض الفاتورة" onClick={() => setSelected(inv)}><Eye size={16}/></button><button className="icon-btn" title="مشاركة PDF عبر واتساب" aria-label="مشاركة PDF عبر واتساب" disabled={sharing} onClick={() => void shareInvoicePdf(inv)}><MessageCircle size={16}/></button><button className="icon-btn" title="تعديل الفاتورة" aria-label="تعديل الفاتورة" onClick={() => startEdit(inv)}><Pencil size={15}/></button><button className="icon-btn" title="حذف الفاتورة" aria-label="حذف الفاتورة" onClick={() => setPendingDelete(inv)}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div> : <div className="empty"><FileText className="empty-icon" size={34}/><div>{search ? "لا توجد فواتير تطابق بحثك." : ready ? "لا توجد فواتير حتى الآن. ابدأ بإنشاء فاتورتك الأولى." : "جارٍ تحميل الفواتير..."}</div></div>}
+      {filtered.length ? <div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الإجمالي</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>{filtered.map((inv) => <tr key={inv.id}><td className="inv-id">{inv.number}</td><td className="client-cell">{inv.client}</td><td className="date-cell">{dateFmt(inv.date)}</td><td className="amount">{fmt(inv.total)}</td><td><span className="status"><Check size={13}/> مكتملة</span></td><td><div className="actions"><button className="icon-btn" title="عرض الفاتورة" aria-label="عرض الفاتورة" onClick={() => setSelected(inv)}><Eye size={16}/></button><button className="icon-btn" title="مشاركة PDF عبر واتساب" aria-label="مشاركة PDF عبر واتساب" disabled={sharing} onClick={() => void shareInvoicePdf(inv)}><MessageCircle size={16}/></button><button className="icon-btn" title="تعديل الفاتورة" aria-label="تعديل الفاتورة" onClick={() => startEdit(inv)}><Pencil size={15}/></button><button className="icon-btn" title="حذف الفاتورة" aria-label="حذف الفاتورة" onClick={() => { setDeletePassword(""); setDeleteError(""); setPendingDelete(inv); }}><Trash2 size={15}/></button></div></td></tr>)}</tbody></table></div> : <div className="empty"><FileText className="empty-icon" size={34}/><div>{search ? "لا توجد فواتير تطابق بحثك." : ready ? "لا توجد فواتير حتى الآن. ابدأ بإنشاء فاتورتك الأولى." : "جارٍ تحميل الفواتير..."}</div></div>}
     </section>
 
     {creating && <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) resetForm(); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><div className="modal-head"><h2 id="create-title">{editingInvoice ? "تعديل الفاتورة" : "إنشاء فاتورة جديدة"}</h2><button className="close" onClick={resetForm} aria-label="إغلاق"><X size={20}/></button></div><div className="modal-body"><label className="field-label" htmlFor="client">اسم العميل / الجهة</label><input id="client" className="text-input" value={client} onChange={(e) => setClient(e.target.value)} placeholder="أدخل اسم العميل أو الجهة" autoFocus/><div className="items-title"><span>الأصناف</span><button className="add-line" onClick={() => setItems((current) => [...current, newItem()])}><Plus size={15}/> إضافة صنف</button></div><div className="item-head"><span>اسم الصنف</span><span>الكمية</span><span>سعر الوحدة</span><span style={{textAlign:"center"}}>الإجمالي</span><span/></div>{items.map((item) => <div className="item-row" key={item.id}><input className="text-input" value={item.name} onChange={(e) => updateItem(item.id,"name",e.target.value)} placeholder="اسم الصنف" aria-label="اسم الصنف"/><input className="text-input" type="number" min="1" placeholder="الكمية" value={item.quantity} onChange={(e) => updateItem(item.id,"quantity",e.target.value)} aria-label="الكمية"/><input className="text-input" type="number" min="0" step="0.01" placeholder="سعر الوحدة" value={item.price} onChange={(e) => updateItem(item.id,"price",e.target.value)} aria-label="سعر الوحدة"/><div className="item-total">{fmt(Number(item.quantity || 0) * Number(item.price || 0))}</div><button className="remove" onClick={() => setItems((current) => current.length > 1 ? current.filter((x) => x.id !== item.id) : current)} aria-label="حذف الصنف"><X size={16}/></button></div>)}<div className="grand"><span>الإجمالي الكلي</span><strong>{fmt(draftTotal)}</strong></div>{error && <div className="error" role="alert">{error}</div>}</div><div className="modal-foot"><button className="primary" onClick={() => void createInvoice()}>{editingInvoice ? "حفظ التعديلات" : "حفظ الفاتورة"}</button><button className="secondary" onClick={resetForm}>إلغاء</button></div></section></div>}
 
-    {pendingDelete && <div className="overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !deleting) setPendingDelete(null); }}><section className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description"><div className="modal-head"><div className="confirm-heading"><div className="confirm-icon"><AlertTriangle size={22}/></div><div><h2 id="delete-title">تأكيد حذف الفاتورة</h2><p>يرجى مراجعة الفاتورة قبل الحذف</p></div></div><button className="close" onClick={() => !deleting && setPendingDelete(null)} aria-label="إغلاق"><X size={20}/></button></div><div className="modal-body"><p id="delete-description" className="confirm-copy">هل تريد حذف الفاتورة <strong>{pendingDelete.number}</strong> الخاصة بالعميل <strong>{pendingDelete.client}</strong>؟ لا يمكن التراجع عن هذا الإجراء.</p></div><div className="modal-foot"><button className="danger-button" disabled={deleting} onClick={() => void removeInvoice()}>{deleting ? "جارٍ الحذف…" : "حذف الفاتورة"}</button><button className="secondary" disabled={deleting} onClick={() => setPendingDelete(null)}>إلغاء</button></div></section></div>}
+        {pendingDelete && <div className="overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteModal(); }}><section className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description"><div className="modal-head"><div className="confirm-heading"><div className="confirm-icon"><AlertTriangle size={22}/></div><div><h2 id="delete-title">تأكيد حذف الفاتورة</h2><p>أدخل كلمة مرور حسابك للمتابعة</p></div></div><button className="close" type="button" onClick={closeDeleteModal} disabled={deleting} aria-label="إغلاق"><X size={20}/></button></div><form className="delete-form" onSubmit={(event) => { event.preventDefault(); void removeInvoice(); }}><div className="modal-body"><p id="delete-description" className="confirm-copy">الفاتورة <strong>{pendingDelete.number}</strong> الخاصة بالعميل <strong>{pendingDelete.client}</strong></p><label className="field-label delete-password-label" htmlFor="delete-password">كلمة المرور الحالية</label><input id="delete-password" className="text-input" type="password" autoComplete="current-password" autoFocus value={deletePassword} onChange={(event) => { setDeletePassword(event.target.value); setDeleteError(""); }} placeholder="أدخل كلمة مرور حسابك" aria-describedby={deleteError ? "delete-password-error" : undefined}/>{deleteError && <p id="delete-password-error" className="error delete-password-error" role="alert">{deleteError}</p>}</div><div className="modal-foot"><button className="danger-button" type="submit" disabled={deleting}>{deleting ? "جارٍ التحقق والحذف..." : "تأكيد وحذف"}</button><button className="secondary" type="button" disabled={deleting} onClick={closeDeleteModal}>إلغاء</button></div></form></section></div>}
 
     {selected && <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelected(null); }}><section className="modal detail-modal" role="dialog" aria-modal="true" aria-label="تفاصيل الفاتورة"><div className="modal-head no-print"><h2>تفاصيل الفاتورة</h2><div style={{display:"flex",gap:12,alignItems:"center"}}><button className="close" title="طباعة" aria-label="طباعة الفاتورة" onClick={() => window.print()}><Printer size={19}/></button><button className="close" onClick={() => setSelected(null)} aria-label="إغلاق"><X size={20}/></button></div></div><InvoiceTemplate invoice={selected} invoiceRef={printableInvoice}/><div className="modal-foot no-print"><button className="secondary" onClick={() => startEdit(selected)}><Pencil size={16}/> تعديل الفاتورة</button><button className="primary" disabled={sharing} onClick={() => void shareInvoicePdf(selected)}><MessageCircle size={17}/> {sharing ? "جارٍ تجهيز PDF…" : "مشاركة PDF عبر واتساب"}</button><button className="secondary" onClick={() => window.print()}><Printer size={16}/> طباعة</button></div></section></div>}
   </main>;
