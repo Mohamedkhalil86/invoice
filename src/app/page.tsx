@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, FileText, Wallet, CalendarDays, Eye, MessageCircle, Printer, X, Trash2, Check, ReceiptText, Pencil, AlertTriangle } from "lucide-react";
+import { Plus, Search, FileText, Wallet, CalendarDays, Eye, MessageCircle, Printer, X, Trash2, Check, ReceiptText, Pencil, AlertTriangle, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import companyLogo from "../WhatsApp Image 2026-11-18 at 3.39.14 PM.jpeg";
 import InvoiceTemplate from "./InvoiceTemplate";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { deleteCloudInvoice, fetchCloudInvoices, isSupabaseConfigured, saveCloudInvoice, updateCloudInvoice, type Invoice, type InvoiceItem } from "@/lib/invoices";
 
 const STORAGE_KEY = "beta-power-invoices-v1";
@@ -23,6 +25,7 @@ type InvoiceFormItem = Omit<InvoiceItem, "quantity" | "price"> & { quantity: num
 const newItem = (): InvoiceFormItem => ({ id: crypto.randomUUID(), name: "", quantity: "", price: "" });
 
 export default function Home() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [ready, setReady] = useState(false);
   const [search, setSearch] = useState("");
@@ -141,6 +144,16 @@ export default function Home() {
     toast.success("تم حذف الفاتورة بنجاح");
   };
 
+  const signOut = async () => {
+    const { error: authError } = await getSupabaseBrowserClient().auth.signOut();
+    if (authError) {
+      toast.error("تعذر تسجيل الخروج. حاول مرة أخرى.");
+      return;
+    }
+    router.replace("/login");
+    router.refresh();
+  };
+
   const shareInvoicePdf = async (invoice: Invoice) => {
     if (sharing) return;
     setSharing(true);
@@ -191,7 +204,7 @@ export default function Home() {
   };
 
   return <main className="shell" dir="rtl">
-    <header className="topbar no-print"><div className="brand"><div className="brand-mark logo-frame navbar-logo"><Image src={companyLogo} alt="شعار Beta Power" priority/></div><div><div className="brand-name">Beta Power</div><div className="brand-sub">إدارة الفواتير</div></div></div><div className="profile"><div className="avatar">م</div><span>Mahmoud Hany</span></div></header>
+    <header className="topbar no-print"><div className="brand"><div className="brand-mark logo-frame navbar-logo"><Image src={companyLogo} alt="شعار Beta Power" priority/></div><div><div className="brand-name">Beta Power</div><div className="brand-sub">إدارة الفواتير</div></div></div><div className="profile"><div className="avatar">م</div><span>Mahmoud Hany</span></div><button className="logout-button" type="button" onClick={() => void signOut()}><LogOut size={16}/> تسجيل الخروج</button></header>
     <section className="welcome no-print"><div><h1>إدارة الفواتير</h1><p>تابع فواتيرك وأنشئ فاتورة جديدة بكل سهولة.</p></div><button className="primary" onClick={startCreate}><Plus size={18}/> إنشاء فاتورة جديدة</button></section>
     <section className="stats no-print">
       <div className="stat"><div><div className="stat-label">إجمالي الفواتير</div><div className="stat-value">{filtered.length}</div></div><div className="stat-icon"><ReceiptText size={20}/></div></div>

@@ -10,16 +10,24 @@ create table if not exists public.invoices (
 );
 
 alter table public.invoices enable row level security;
-grant usage on schema public to anon;
-grant select, insert, update, delete on table public.invoices to anon;
+revoke all on table public.invoices from anon, public;
+grant select, insert, update, delete on table public.invoices to authenticated;
 
--- Demo policy: allow access with the anon key. Replace this with authenticated
--- policies before using the app for confidential or production invoice data.
-create policy "demo invoices are readable" on public.invoices
-  for select to anon using (true);
-create policy "demo invoices can be added" on public.invoices
-  for insert to anon with check (true);
-create policy "demo invoices can be updated" on public.invoices
-  for update to anon using (true) with check (true);
-create policy "demo invoices can be deleted" on public.invoices
-  for delete to anon using (true);
+drop policy if exists "demo invoices are readable" on public.invoices;
+drop policy if exists "demo invoices can be added" on public.invoices;
+drop policy if exists "demo invoices can be updated" on public.invoices;
+drop policy if exists "demo invoices can be deleted" on public.invoices;
+drop policy if exists "authenticated users can read invoices" on public.invoices;
+drop policy if exists "authenticated users can add invoices" on public.invoices;
+drop policy if exists "authenticated users can update invoices" on public.invoices;
+drop policy if exists "authenticated users can delete invoices" on public.invoices;
+
+create policy "authenticated users can read invoices" on public.invoices
+  for select to authenticated using ((select auth.uid()) is not null);
+create policy "authenticated users can add invoices" on public.invoices
+  for insert to authenticated with check ((select auth.uid()) is not null);
+create policy "authenticated users can update invoices" on public.invoices
+  for update to authenticated using ((select auth.uid()) is not null)
+  with check ((select auth.uid()) is not null);
+create policy "authenticated users can delete invoices" on public.invoices
+  for delete to authenticated using ((select auth.uid()) is not null);

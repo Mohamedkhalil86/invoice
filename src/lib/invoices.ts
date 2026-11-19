@@ -1,23 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "./supabase-browser";
+import { supabasePublishableKey, supabaseUrl } from "./supabase-config";
 
 export type InvoiceItem = { id: string; name: string; quantity: number; price: number };
 export type Invoice = { id: string; number: string; client: string; items: InvoiceItem[]; date: string; total: number; creator: string };
 
-const fallbackUrl = "https://hlfdfphzjciivhsuupvy.supabase.co";
-const fallbackPublishableKey = "sb_publishable_1DsaxxjDSVwi9wUttcHu8Q_W_5zzd-z";
-const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || fallbackUrl;
-const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim()
-  || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
-  || fallbackPublishableKey;
-// Supabase JS expects the project root. Accept a pasted REST endpoint too,
-// but strip `/rest/v1` before the client appends its own REST path.
-const projectUrl = rawUrl.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
-export const isSupabaseConfigured = Boolean(projectUrl && publishableKey);
-const supabase = createClient(projectUrl, publishableKey, {
-  // New sb_publishable keys belong in `apikey`; they are not JWTs and should
-  // not be manually copied into Authorization as a Bearer token.
-  global: { headers: { apikey: publishableKey } },
-});
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+const supabase = getSupabaseBrowserClient();
 const table = "invoices";
 
 function errorMessage(error: unknown, httpStatus?: number): string {

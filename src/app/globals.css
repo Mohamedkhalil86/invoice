@@ -12,6 +12,8 @@ button { cursor: pointer; }
 .brand-name { font-size:22px; font-weight:800; letter-spacing:-.5px; }
 .brand-sub { color:var(--muted);font-size:12px;margin-top:3px; }
 .profile { display:flex;align-items:center;gap:10px;color:#566571;font-size:14px; }
+.logout-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--line); border-radius:9px; padding:9px 12px; background:#fff; color:#52616a; font-size:12px; font-weight:700; }
+.logout-button:hover { color:#b33b3b; border-color:#edcccc; background:#fffafa; }
 .avatar { background:#e9eeeb;color:var(--teal);width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:bold; }
 .welcome { display:flex;justify-content:space-between;align-items:flex-end;padding:38px 0 28px;gap:20px; }
 .welcome h1 {font-size:27px;margin:0 0 9px;letter-spacing:-.6px;}
